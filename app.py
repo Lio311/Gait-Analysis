@@ -123,31 +123,33 @@ def process_video(video_path):
 
 # --- Streamlit UI ---
 
-# --- START OF UI CHANGE ---
+# --- START OF UI CHANGE (Inverted Logic) ---
 EXAMPLE_VIDEO_PATH = "videos/examplevideo.mp4"
 
 st.sidebar.header("Video Input")
-use_example = st.sidebar.checkbox("Use Example Video", value=True)
 
 uploaded_file = None
-if not use_example:
-    uploaded_file = st.sidebar.file_uploader("Upload video file (mp4, avi, mov)", type=["mp4", "avi", "mov"])
-
 video_path = None
 temp_video_to_delete = None
 
+use_example = st.sidebar.checkbox("Use Example Video", value=False)
+
 if use_example:
+    # Use example video
     if os.path.exists(EXAMPLE_VIDEO_PATH):
         video_path = EXAMPLE_VIDEO_PATH
     else:
         st.error(f"Example video not found at: {EXAMPLE_VIDEO_PATH}")
         st.stop()
-elif uploaded_file is not None:
-    original_suffix = os.path.splitext(uploaded_file.name)[-1]
-    with tempfile.NamedTemporaryFile(delete=False, suffix=original_suffix) as tfile:
-        tfile.write(uploaded_file.getvalue())
-        video_path = tfile.name
-        temp_video_to_delete = tfile.name
+else:
+    # Use file uploader (default)
+    uploaded_file = st.sidebar.file_uploader("Upload video file (mp4, avi, mov)", type=["mp4", "avi", "mov"])
+    if uploaded_file is not None:
+        original_suffix = os.path.splitext(uploaded_file.name)[-1]
+        with tempfile.NamedTemporaryFile(delete=False, suffix=original_suffix) as tfile:
+            tfile.write(uploaded_file.getvalue())
+            video_path = tfile.name
+            temp_video_to_delete = tfile.name
 # --- END OF UI CHANGE ---
 
 if video_path is not None:
@@ -159,8 +161,6 @@ if video_path is not None:
         if annotated_video_path:
             st.success("Analysis complete!")
             
-            # --- START OF LAYOUT CHANGE (Smaller Video) ---
-            
             # Row 1: Analyzed Video (Centered, 50% width)
             vid_col1, vid_col2, vid_col3 = st.columns([1, 2, 1])
             with vid_col2:
@@ -168,8 +168,6 @@ if video_path is not None:
                 video_file = open(annotated_video_path, 'rb')
                 video_bytes = video_file.read()
                 st.video(video_bytes, format='video/webm')
-            
-            # --- END OF LAYOUT CHANGE ---
             
             st.divider()
 
