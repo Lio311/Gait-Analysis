@@ -62,7 +62,12 @@ def process_video(video_path):
     
     # Setup for writing the output video
     out_video_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4').name
-    out = cv2.VideoWriter(out_video_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (width, height))
+    
+    # --- START OF FIX ---
+    # Change codec from 'mp4v' (MPEG-4) to 'avc1' (H.264)
+    # 'avc1' is the standard codec for web browsers (HTML5 video)
+    out = cv2.VideoWriter(out_video_path, cv2.VideoWriter_fourcc(*'avc1'), fps, (width, height))
+    # --- END OF FIX ---
 
     # Lists to store data for plotting
     left_knee_angles = []
