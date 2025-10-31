@@ -43,9 +43,9 @@ def plot_signal(timestamps, angles, title, yaxis_title="Angle (Degrees)"):
     )
     return fig
 
-# --- Main Processing Function ---
+# --- Main Processing Function (REMOVED @st.cache_data) ---
 
-@st.cache_data
+# @st.cache_data  <--- שורה זו הוסרה!
 def process_video(video_path):
     """
     Processes the video, extracts landmarks, calculates knee angles, and creates an annotated video.
@@ -53,15 +53,18 @@ def process_video(video_path):
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         st.error(f"Error opening video file at: {video_path}")
-        return None, None, None
-
+        return None, None, None, None # Added an extra None to match the tuple size
+        
     # Get video properties
     fps = cap.get(cv2.CAP_PROP_FPS)
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     
     # Change format to WebM with VP9 codec, which is browser-native
-    out_video_path = tempfile.NamedTemporaryFile(delete=False, suffix='.webm').name
+    # NOTE: Using tempfile.mkstemp for a reliable, unique path
+    fd, out_video_path = tempfile.mkstemp(suffix='.webm')
+    os.close(fd) # Close the file descriptor immediately
+    
     out = cv2.VideoWriter(out_video_path, cv2.VideoWriter_fourcc(*'VP90'), fps, (width, height))
 
     # Lists to store data for plotting
@@ -108,10 +111,10 @@ def process_video(video_path):
                 left_knee_angles.append(None)
                 right_knee_angles.append(None)
                 timestamps.append(frame_count / fps)
-            
+                
             mp_drawing.draw_landmarks(image, results.pose_landmarks, mp_pose.POSE_CONNECTIONS,
-                                    mp_drawing.DrawingSpec(color=(245,117,66), thickness=2, circle_radius=2), 
-                                    mp_drawing.DrawingSpec(color=(245,66,230), thickness=2, circle_radius=2))
+                                     mp_drawing.DrawingSpec(color=(245,117,66), thickness=2, circle_radius=2), 
+                                     mp_drawing.DrawingSpec(color=(245,66,230), thickness=2, circle_radius=2))
             
             out.write(image)
             frame_count += 1
@@ -121,7 +124,7 @@ def process_video(video_path):
     
     return out_video_path, timestamps, left_knee_angles, right_knee_angles
 
-# --- Streamlit UI ---
+# --- Streamlit UI (No Change Needed Here) ---
 
 # --- START OF UI CHANGE (Inverted Logic) ---
 EXAMPLE_VIDEO_PATH = "videos/examplevideo.mp4"
@@ -153,9 +156,11 @@ else:
 # --- END OF UI CHANGE ---
 
 if video_path is not None:
-    annotated_video_path = None # Define outside try block
+    # Initialize outside try/finally block so it's accessible for cleanup
+    annotated_video_path = None 
     try:
         with st.spinner("Analyzing video... This may take a while for long videos..."):
+            # The function now always runs, creating a NEW temporary file
             annotated_video_path, times, left_angles, right_angles = process_video(video_path)
             
         if annotated_video_path:
@@ -165,6 +170,8 @@ if video_path is not None:
             vid_col1, vid_col2, vid_col3 = st.columns([1, 2, 1])
             with vid_col2:
                 st.header("Analyzed Video")
+                # Fix: The FileNotFoundError happened here. Since 'annotated_video_path' is now guaranteed
+                # to exist (as it was just created), the error should be resolved.
                 video_file = open(annotated_video_path, 'rb')
                 video_bytes = video_file.read()
                 st.video(video_bytes, format='video/webm')
@@ -196,6 +203,7 @@ if video_path is not None:
 
     finally:
         # Clean up temp files
+        # The annotated_video_path is now set if process_video ran successfully
         if temp_video_to_delete and os.path.exists(temp_video_to_delete):
             os.remove(temp_video_to_delete)
         if annotated_video_path and os.path.exists(annotated_video_path):
