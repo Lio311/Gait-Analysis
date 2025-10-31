@@ -12,7 +12,7 @@ st.set_page_config(
     page_title="Gait Analyzer",
     page_icon="🦶" 
 )
-
+st.title("Video-Based Gait Analyzer (Knee Angle)")
 st.markdown("Upload a video of a person walking (side view recommended) to analyze knee joint angles.")
 
 # --- MediaPipe Setup ---
