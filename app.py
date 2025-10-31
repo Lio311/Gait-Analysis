@@ -60,14 +60,11 @@ def process_video(video_path):
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     
-    # Setup for writing the output video
-    out_video_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4').name
-    
-    # --- START OF FIX ---
-    # Change codec from 'mp4v' (MPEG-4) to 'avc1' (H.264)
-    # 'avc1' is the standard codec for web browsers (HTML5 video)
-    out = cv2.VideoWriter(out_video_path, cv2.VideoWriter_fourcc(*'avc1'), fps, (width, height))
-    # --- END OF FIX ---
+    # --- START OF FIX (V3) ---
+    # Change format to WebM with VP9 codec, which is browser-native
+    out_video_path = tempfile.NamedTemporaryFile(delete=False, suffix='.webm').name
+    out = cv2.VideoWriter(out_video_path, cv2.VideoWriter_fourcc(*'VP90'), fps, (width, height))
+    # --- END OF FIX (V3) ---
 
     # Lists to store data for plotting
     left_knee_angles = []
@@ -148,7 +145,9 @@ def process_video(video_path):
 uploaded_file = st.file_uploader("Upload video file (mp4, avi, mov)", type=["mp4", "avi", "mov"])
 
 if uploaded_file is not None:
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tfile:
+    # Use the original suffix for the input file
+    original_suffix = os.path.splitext(uploaded_file.name)[-1]
+    with tempfile.NamedTemporaryFile(delete=False, suffix=original_suffix) as tfile:
         tfile.write(uploaded_file.getvalue())
         video_path = tfile.name
 
@@ -164,7 +163,7 @@ if uploaded_file is not None:
                 st.header("Analyzed Video")
                 video_file = open(annotated_video_path, 'rb')
                 video_bytes = video_file.read()
-                st.video(video_bytes)
+                st.video(video_bytes, format='video/webm') # Tell streamlit it's a webm file
             
             with col2:
                 st.header("Gait Signal (Knee Angle)")
