@@ -7,8 +7,12 @@ import tempfile
 import os
 
 # --- Page Configuration ---
-st.set_page_config(layout="wide", page_title="Gait Analyzer", page_icon="🦶")
-st.title("Video-Based Gait Analyzer (Knee Angle)")
+st.set_page_config(
+    layout="wide",
+    page_title="Gait Analyzer",
+    page_icon="🦶" 
+)
+
 st.markdown("Upload a video of a person walking (side view recommended) to analyze knee joint angles.")
 
 # --- MediaPipe Setup ---
