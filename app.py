@@ -52,7 +52,7 @@ def process_video(video_path):
     """
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
-        st.error("Error opening video file.")
+        st.error(f"Error opening video file at: {video_path}")
         return None, None, None
 
     # Get video properties
@@ -77,55 +77,38 @@ def process_video(video_path):
             if not ret:
                 break
                 
-            # Recolor image to RGB for MediaPipe
             image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             image.flags.writeable = False
-            
-            # Make detection
             results = pose.process(image)
-            
-            # Recolor back to BGR for OpenCV
             image.flags.writeable = True
             image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
             
-            # Extract landmarks
             try:
                 landmarks = results.pose_landmarks.landmark
                 
-                # Get coordinates for Left side
                 left_hip = [landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].x, landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y]
                 left_knee = [landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].x, landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].y]
                 left_ankle = [landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value].x, landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value].y]
                 
-                # Get coordinates for Right side
                 right_hip = [landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value].x, landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value].y]
                 right_knee = [landmarks[mp_pose.PoseLandmark.RIGHT_KNEE.value].x, landmarks[mp_pose.PoseLandmark.RIGHT_KNEE.value].y]
                 right_ankle = [landmarks[mp_pose.PoseLandmark.RIGHT_ANKLE.value].x, landmarks[mp_pose.PoseLandmark.RIGHT_ANKLE.value].y]
                 
-                # Calculate angles
                 left_angle = calculate_angle(left_hip, left_knee, left_ankle)
                 right_angle = calculate_angle(right_hip, right_knee, right_ankle)
                 
-                # Store data
                 left_knee_angles.append(left_angle)
                 right_knee_angles.append(right_angle)
                 timestamps.append(frame_count / fps)
                 
-                # Visualize angle on the video
-                cv2.putText(image, f"Left: {int(left_angle)}", 
-                               (int(left_knee[0]*width)+10, int(left_knee[1]*height)), 
-                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 2, cv2.LINE_AA)
-                cv2.putText(image, f"Right: {int(right_angle)}", 
-                               (int(right_knee[0]*width)+10, int(right_knee[1]*height)), 
-                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2, cv2.LINE_AA)
+                cv2.putText(image, f"Left: {int(left_angle)}", (int(left_knee[0]*width)+10, int(left_knee[1]*height)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 2, cv2.LINE_AA)
+                cv2.putText(image, f"Right: {int(right_angle)}", (int(right_knee[0]*width)+10, int(right_knee[1]*height)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2, cv2.LINE_AA)
 
             except:
-                # Append None if landmarks were not detected
                 left_knee_angles.append(None)
                 right_knee_angles.append(None)
                 timestamps.append(frame_count / fps)
             
-            # Render detections
             mp_drawing.draw_landmarks(image, results.pose_landmarks, mp_pose.POSE_CONNECTIONS,
                                     mp_drawing.DrawingSpec(color=(245,117,66), thickness=2, circle_radius=2), 
                                     mp_drawing.DrawingSpec(color=(245,66,230), thickness=2, circle_radius=2))
@@ -140,35 +123,59 @@ def process_video(video_path):
 
 # --- Streamlit UI ---
 
-uploaded_file = st.file_uploader("Upload video file (mp4, avi, mov)", type=["mp4", "avi", "mov"])
+# --- START OF UI CHANGE ---
+EXAMPLE_VIDEO_PATH = "videos/examplevideo.mp4"
 
-if uploaded_file is not None:
-    # Use the original suffix for the input file
+st.sidebar.header("Video Input")
+use_example = st.sidebar.checkbox("Use Example Video", value=True)
+
+uploaded_file = None
+if not use_example:
+    uploaded_file = st.sidebar.file_uploader("Upload video file (mp4, avi, mov)", type=["mp4", "avi", "mov"])
+
+video_path = None
+temp_video_to_delete = None
+
+if use_example:
+    if os.path.exists(EXAMPLE_VIDEO_PATH):
+        video_path = EXAMPLE_VIDEO_PATH
+    else:
+        st.error(f"Example video not found at: {EXAMPLE_VIDEO_PATH}")
+        st.stop()
+elif uploaded_file is not None:
     original_suffix = os.path.splitext(uploaded_file.name)[-1]
     with tempfile.NamedTemporaryFile(delete=False, suffix=original_suffix) as tfile:
         tfile.write(uploaded_file.getvalue())
         video_path = tfile.name
+        temp_video_to_delete = tfile.name
+# --- END OF UI CHANGE ---
 
-    with st.spinner("Analyzing video... This may take a while for long videos..."):
-        annotated_video_path, times, left_angles, right_angles = process_video(video_path)
-        
+if video_path is not None:
+    annotated_video_path = None # Define outside try block
+    try:
+        with st.spinner("Analyzing video... This may take a while for long videos..."):
+            annotated_video_path, times, left_angles, right_angles = process_video(video_path)
+            
         if annotated_video_path:
             st.success("Analysis complete!")
             
-            # --- START OF LAYOUT CHANGE ---
+            # --- START OF LAYOUT CHANGE (Smaller Video) ---
             
-            # Row 1: Analyzed Video (full width)
-            st.header("Analyzed Video")
-            video_file = open(annotated_video_path, 'rb')
-            video_bytes = video_file.read()
-            st.video(video_bytes, format='video/webm') # Tell streamlit it's a webm file
+            # Row 1: Analyzed Video (Centered, 50% width)
+            vid_col1, vid_col2, vid_col3 = st.columns([1, 2, 1])
+            with vid_col2:
+                st.header("Analyzed Video")
+                video_file = open(annotated_video_path, 'rb')
+                video_bytes = video_file.read()
+                st.video(video_bytes, format='video/webm')
             
-            st.divider() # Add a separator
+            # --- END OF LAYOUT CHANGE ---
+            
+            st.divider()
 
             # Row 2: Graphs
             st.header("Gait Signal (Knee Angle)")
             
-            # Clean data for plotting
             clean_times = [t for i, t in enumerate(times) if left_angles[i] is not None]
             clean_left = [a for a in left_angles if a is not None]
             clean_right = [a for a in right_angles if a is not None]
@@ -188,11 +195,10 @@ if uploaded_file is not None:
                     st.plotly_chart(fig_right, use_container_width=True)
                 else:
                     st.info("No right leg detected.")
-            
-            # --- END OF LAYOUT CHANGE ---
 
-    # Clean up temp files
-    if 'video_path' in locals() and os.path.exists(video_path):
-        os.remove(video_path)
-    if 'annotated_video_path' in locals() and os.path.exists(annotated_video_path):
-        os.remove(annotated_video_path)
+    finally:
+        # Clean up temp files
+        if temp_video_to_delete and os.path.exists(temp_video_to_delete):
+            os.remove(temp_video_to_delete)
+        if annotated_video_path and os.path.exists(annotated_video_path):
+            os.remove(annotated_video_path)
