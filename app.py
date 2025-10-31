@@ -60,11 +60,9 @@ def process_video(video_path):
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     
-    # --- START OF FIX (V3) ---
     # Change format to WebM with VP9 codec, which is browser-native
     out_video_path = tempfile.NamedTemporaryFile(delete=False, suffix='.webm').name
     out = cv2.VideoWriter(out_video_path, cv2.VideoWriter_fourcc(*'VP90'), fps, (width, height))
-    # --- END OF FIX (V3) ---
 
     # Lists to store data for plotting
     left_knee_angles = []
@@ -157,27 +155,41 @@ if uploaded_file is not None:
         if annotated_video_path:
             st.success("Analysis complete!")
             
+            # --- START OF LAYOUT CHANGE ---
+            
+            # Row 1: Analyzed Video (full width)
+            st.header("Analyzed Video")
+            video_file = open(annotated_video_path, 'rb')
+            video_bytes = video_file.read()
+            st.video(video_bytes, format='video/webm') # Tell streamlit it's a webm file
+            
+            st.divider() # Add a separator
+
+            # Row 2: Graphs
+            st.header("Gait Signal (Knee Angle)")
+            
+            # Clean data for plotting
+            clean_times = [t for i, t in enumerate(times) if left_angles[i] is not None]
+            clean_left = [a for a in left_angles if a is not None]
+            clean_right = [a for a in right_angles if a is not None]
+            
             col1, col2 = st.columns(2)
             
             with col1:
-                st.header("Analyzed Video")
-                video_file = open(annotated_video_path, 'rb')
-                video_bytes = video_file.read()
-                st.video(video_bytes, format='video/webm') # Tell streamlit it's a webm file
-            
-            with col2:
-                st.header("Gait Signal (Knee Angle)")
-                # Clean data for plotting (remove None values)
-                clean_times = [t for i, t in enumerate(times) if left_angles[i] is not None]
-                clean_left = [a for a in left_angles if a is not None]
-                clean_right = [a for a in right_angles if a is not None]
-                
                 if clean_left:
                     fig_left = plot_signal(clean_times, clean_left, "Left Knee Angle Over Time")
                     st.plotly_chart(fig_left, use_container_width=True)
+                else:
+                    st.info("No left leg detected.")
+            
+            with col2:
                 if clean_right:
                     fig_right = plot_signal(clean_times, clean_right, "Right Knee Angle Over Time")
                     st.plotly_chart(fig_right, use_container_width=True)
+                else:
+                    st.info("No right leg detected.")
+            
+            # --- END OF LAYOUT CHANGE ---
 
     # Clean up temp files
     if 'video_path' in locals() and os.path.exists(video_path):
