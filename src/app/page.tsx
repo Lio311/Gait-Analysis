@@ -5,12 +5,20 @@ import { Upload, Play, Activity } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { PoseLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 
+type Point2D = { x: number; y: number };
+
+type GaitSample = {
+  time: string;
+  leftKnee: number | null;
+  rightKnee: number | null;
+};
+
 export default function GaitAnalyzer() {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [chartData, setChartData] = useState<any[]>([]);
+  const [chartData, setChartData] = useState<GaitSample[]>([]);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -44,7 +52,7 @@ export default function GaitAnalyzer() {
     }
   };
 
-  const calculateAngle = (a: any, b: any, c: any) => {
+  const calculateAngle = (a: Point2D, b: Point2D, c: Point2D) => {
     const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
     let angle = Math.abs(radians * 180.0 / Math.PI);
     if (angle > 180.0) angle = 360 - angle;
@@ -66,7 +74,7 @@ export default function GaitAnalyzer() {
     video.currentTime = 0;
     await video.play();
 
-    const newData: any[] = [];
+    const newData: GaitSample[] = [];
     let lastVideoTime = -1;
 
     const processFrame = () => {
